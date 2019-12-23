@@ -28,3 +28,4 @@ graph LR
 
    visuals --> stats[month_collected, profit, monthly_progress, bottles_delievered, total_customers]
 ```
+> To compile this please install following extension https://chrome.google.com/webstore/detail/github-%20-mermaid/goiiopgdnkogdbjmncgedmgpoajilohe
