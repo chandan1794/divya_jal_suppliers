@@ -29,3 +29,9 @@ graph LR
    visuals --> stats[month_collected, profit, monthly_progress, bottles_delievered, total_customers]
 ```
 > To compile this please install following extension https://chrome.google.com/webstore/detail/github-%20-mermaid/goiiopgdnkogdbjmncgedmgpoajilohe
+
+# How to Run
+1. Create a virtual environment with python3.7 or greater
+2. Install requirements.txt using pip
+    `$pip install -r requirements.txt`
+3. Run `$python -m flask run`
