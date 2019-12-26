@@ -1,16 +1,3 @@
-# ************************************************************
-# Sequel Pro SQL dump
-# Version 4541
-#
-# http://www.sequelpro.com/
-# https://github.com/sequelpro/sequelpro
-#
-# Host: 127.0.0.1 (MySQL 5.5.62)
-# Database: divya_jal_suppliers
-# Generation Time: 2019-12-25 08:16:54 +0000
-# ************************************************************
-
-
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -34,7 +21,7 @@ CREATE TABLE `tbl_complete_payments` (
   `modified_at` timestamp NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`id`),
   KEY `fk_order_id_tbl_orders_tbl_complete_payments` (`order_id`),
-  CONSTRAINT `fk_order_id_tbl_orders_tbl_complete_payments` FOREIGN KEY (`order_id`) REFERENCES `tbl_complete_payments` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
+  CONSTRAINT `fk_order_id_tbl_orders_tbl_complete_payments` FOREIGN KEY (`order_id`) REFERENCES `tbl_orders` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -57,7 +44,6 @@ CREATE TABLE `tbl_customer_details` (
   `modified_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
 
 # Dump of table tbl_kettle_types
 # ------------------------------------------------------------
@@ -94,7 +80,7 @@ CREATE TABLE `tbl_needs` (
   `kettle_id` int(11) unsigned NOT NULL,
   `num_of_kettles` int(4) unsigned NOT NULL DEFAULT '1',
   `rate_per_kettle` double unsigned NOT NULL DEFAULT '1',
-  `day_to_deliever` enum('SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY') NOT NULL DEFAULT 'MONDAY',
+  `day_to_deliver` enum('SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY') NOT NULL DEFAULT 'MONDAY',
   `need_type` enum('ONCE','RECURRENT') NOT NULL DEFAULT 'ONCE',
   `status` enum('ENABLED','DISABLED') NOT NULL DEFAULT 'ENABLED',
   `created_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -116,16 +102,41 @@ DROP TABLE IF EXISTS `tbl_orders`;
 CREATE TABLE `tbl_orders` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `customer_id` int(11) unsigned NOT NULL,
+  `need_id` int(11) unsigned NOT NULL,
   `kettle_type` int(11) unsigned NOT NULL,
   `number_of_kettles` int(4) unsigned DEFAULT '1',
-  `order_status` enum('PENDING','DELIEVERED','DELETED') NOT NULL DEFAULT 'PENDING',
+  `order_status` enum('PENDING','DELIVERED','DELETED') NOT NULL DEFAULT 'PENDING',
   `total_amount` float unsigned NOT NULL DEFAULT '1',
   `created_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `modified_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00' ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  CONSTRAINT `fk_customer_id_tbl_customer_details_tbl_orders` FOREIGN KEY (`id`) REFERENCES `tbl_customer_details` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `fk_need_id_tbl_needs_tbl_orders` (`need_id`),
+  KEY `fk_customer_id_tbl_customer_details_tbl_orders` (`customer_id`),
+  CONSTRAINT `fk_customer_id_tbl_customer_details_tbl_orders` FOREIGN KEY (`customer_id`) REFERENCES `tbl_customer_details` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE,
+  CONSTRAINT `fk_need_id_tbl_needs_tbl_orders` FOREIGN KEY (`need_id`) REFERENCES `tbl_needs` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+
+DELIMITER ;;
+/*!50003 SET SESSION SQL_MODE="" */;;
+/*!50003 CREATE */ /*!50017 DEFINER=`root`@`localhost` */ /*!50003 TRIGGER `tr_update_tbl_needs_status_insert_tbl_pending_payments` AFTER UPDATE ON `tbl_orders` FOR EACH ROW BEGIN
+    IF NEW.order_status = 'DELIVERED' THEN
+      UPDATE tbl_needs
+      SET STATUS = 'DISABLED'
+      WHERE STATUS = 'ENABLED'
+      AND need_type = 'ONCE'
+      AND id = NEW.need_id
+      AND customer_id = NEW.customer_id;
+
+      INSERT INTO tbl_pending_payments
+      SET order_id=NEW.id,
+      money_pending=NEW.total_amount,
+      created_at=NOW(),
+      modified_at=NOW();
+    END IF;
+  END */;;
+DELIMITER ;
+/*!50003 SET SESSION SQL_MODE=@OLD_SQL_MODE */;
 
 
 # Dump of table tbl_pending_payments
@@ -136,14 +147,42 @@ DROP TABLE IF EXISTS `tbl_pending_payments`;
 CREATE TABLE `tbl_pending_payments` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `order_id` int(11) unsigned NOT NULL,
-  `money_pending` float unsigned NOT NULL DEFAULT '1',
-  `create_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `money_pending` float unsigned NOT NULL DEFAULT '0',
+  `amount_paid` float unsigned NOT NULL DEFAULT '0',
+  `status` enum('PAID','PENDING','PARTIALLY_PAID') NOT NULL DEFAULT 'PENDING',
+  `created_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `modified_at` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00' ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `fk_order_id_tbl_orders_tbl_pending_payments` (`order_id`),
-  CONSTRAINT `fk_order_id_tbl_orders_tbl_pending_payments` FOREIGN KEY (`order_id`) REFERENCES `tbl_complete_payments` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
+  KEY `fk_order_id_tbl_order_tbl_pending_payments` (`order_id`),
+  CONSTRAINT `fk_order_id_tbl_order_tbl_pending_payments` FOREIGN KEY (`order_id`) REFERENCES `tbl_orders` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+
+DELIMITER ;;
+/*!50003 SET SESSION SQL_MODE="" */;;
+/*!50003 CREATE */ /*!50017 DEFINER=`root`@`localhost` */ /*!50003 TRIGGER `tr_update_tbl_pending_payments_insert_tbl_complete_payments` BEFORE UPDATE ON `tbl_pending_payments` FOR EACH ROW IF NEW.amount_paid > 0 AND NEW.amount_paid > OLD.amount_paid AND OLD.status <> 'PAID' THEN
+
+  IF NEW.amount_paid <> NEW.money_pending THEN
+  	SET NEW.status = "PARTIALLY_PAID";
+  ELSE
+  	SET NEW.status = "PAID";
+  END IF;
+
+   IF NEW.status = 'PARTIALLY_PAID' OR OLD.status = 'PARTIALLY_PAID' THEN
+   	 SET @is_partial = 'YES';
+   ELSE
+     SET @is_partial = 'NO';
+   END IF;
+
+  INSERT INTO  tbl_complete_payments
+  SET order_id = NEW.order_id,
+  amount_paid = NEW.amount_paid - OLD.amount_paid,
+  is_partial = @is_partial,
+  created_at = NOW(),
+  modified_at = NOW();
+END IF */;;
+DELIMITER ;
+/*!50003 SET SESSION SQL_MODE=@OLD_SQL_MODE */;
 
 
 
