@@ -16,9 +16,9 @@
 {% endblock %}
 
 {% block content %}
-  <div class="card-group">
+  <div class="card-deck">
     {% for card in cards %}
-    <div class="card">
+    <div class="card home_pg_func_btns">
       <div class="card-header bg-transparent">{{ card["func"] }}</div>
       <div class="card-body">
         <h5 class="card-title">{{ card["title"] }}</h5>
