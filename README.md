@@ -34,7 +34,7 @@ graph LR
 1. Create a virtual environment with python3.7 or greater
 2. Install MySQL > 5.5
 3. Create db `divya_jal_suppliers`
-4. Load data into `divya_jal_suppliers` from the file `setup/dbqueries.sql`
+4. Load data into `divya_jal_suppliers` from the file `setup/dbqueries.sql` and `setup/dbevents.sql`
 2. Install requirements.txt using pip
     `$pip install -r requirements.txt`
-3. Run `$python -m flask run`
+3. Run `bash launch.sh $PWD development` or `bash launch.sh $PWD production`

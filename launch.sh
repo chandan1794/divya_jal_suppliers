@@ -5,6 +5,9 @@ if [[ $* == "" ]]; then
 fi
 
 PROJECT_DIR=$1
+ENV=$2
+
+source ${PROJECT_DIR}/config/${ENV}.sh
 source ${PROJECT_DIR}/config/env.sh
 
 python3 -m flask run
